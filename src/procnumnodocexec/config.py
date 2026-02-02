@@ -23,8 +23,7 @@ class SettingsDB:
     database: str
     user: str
     password: str
-    driver: str = "ODBC Driver 18 for SQL Server"
-    trust_cert: str = "yes"
+    port: str = "5432"
 
 
 @lru_cache(maxsize=1)
@@ -35,8 +34,7 @@ def get_db_settings() -> SettingsDB:
         database=_get_str("DB_NAME", ""),
         user=_get_str("DB_USER", ""),
         password=_get_str("DB_PASSWORD", ""),
-        driver=_get_str("DB_DRIVER", "ODBC Driver 18 for SQL Server"),
-        trust_cert=_get_str("DB_TRUST_CERT", "yes"),
+        port=_get_str("DB_PORT", "5432"),
     )
 
 @dataclass(frozen=True)

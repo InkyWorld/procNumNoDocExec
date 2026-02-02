@@ -8,6 +8,7 @@ from aiofile import AIOFile
 from procnumnodocexec.remote_client import RemoteFileClient
 
 from .config import PROJECT_ROOT
+from .decision_llm import CLASSIFY_PROMPT, EXTRACT_PROMPT, detect_status_with_llm
 from .schemas import DecisionEnum
 
 
@@ -22,22 +23,26 @@ class FileProcessor(ABC):
 class DecisionFileProcessor(FileProcessor):
     """Placeholder implementation to be replaced with real processing logic."""
 
+    # Re-export prompts so external code can build chains using this class
+    EXTRACT_PROMPT = EXTRACT_PROMPT
+    CLASSIFY_PROMPT = CLASSIFY_PROMPT
+
+    def __init__(self, extract_chain=None, classify_chain=None) -> None:
+        self._extract_chain = extract_chain
+        self._classify_chain = classify_chain
+
     @staticmethod
     async def _parse_decision_in_file(local_file: Path) -> DecisionEnum:
         print(f"Парсинг файлу: {local_file}")
         async with AIOFile(local_file, "rb") as afd:
             raw_content = await afd.read()
-            content = raw_content.decode("Windows-1251")  # type: ignore
-            print(f"Вміст файлу: {content[:1000]}...")
-            content_lower = content.lower()  # type: ignore
-            if "позитивне" in content_lower:
-                return DecisionEnum.POSITIVE  # type: ignore
-            elif "негативне" in content_lower:
-                return DecisionEnum.NEGATIVE  # type: ignore
-            elif "часткове" in content_lower:
-                return DecisionEnum.PARTIAL  # type: ignore
-            else:
-                return DecisionEnum.UNKNOWN  # type: ignore
+            content = raw_content.decode("Windows-1251")
+        print(f"Вміст файлу: {content[:1000]}...")
+        return await detect_status_with_llm(
+            content,
+            self._extract_chain,
+            self._classify_chain,
+        )
 
     async def process(self, record: str) -> DecisionEnum | None:
         """

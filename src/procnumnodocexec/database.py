@@ -14,27 +14,22 @@ from sqlalchemy.ext.asyncio import (
 from .config import SettingsDB, get_db_settings
 from .models import Base
 
-
 def build_connection_url(
     settings: SettingsDB | None = None, use_async_driver: bool = False
 ) -> str:
-    """Build an MSSQL connection URL using safely quoted credentials.
+    """Build a PostgreSQL connection URL using safely quoted credentials.
 
-    For async engines set ``use_async_driver=True`` to use the ``aioodbc`` driver.
+    For async engines set ``use_async_driver=True`` to use the ``asyncpg`` driver.
     """
 
     s = settings or get_db_settings()
 
     user_q = quote_plus(s.user)
     password_q = quote_plus(s.password)
-    driver_q = quote_plus(s.driver)
 
-    scheme = "mssql+aioodbc" if use_async_driver else "mssql+pyodbc"
+    scheme = "postgresql+asyncpg" if use_async_driver else "postgresql+psycopg2"
 
-    return (
-        f"{scheme}://{user_q}:{password_q}@{s.server}/{s.database}"
-        f"?driver={driver_q}&TrustServerCertificate={s.trust_cert}"
-    )
+    return f"{scheme}://{user_q}:{password_q}@{s.server}:{s.port}/{s.database}"
 
 
 def get_engine(echo: bool = False) -> Engine:

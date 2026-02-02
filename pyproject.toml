@@ -3,13 +3,19 @@ name = "procnumnodocexec"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<4"
 dependencies = [
     "SQLAlchemy>=2.0",
     "aiofile>=3.9.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "asyncpg>=0.29.0",
+    "psycopg2-binary>=2.9.0",
     "pyodbc>=5.1",
     "aioodbc>=0.3.0",
     "python-decouple>=3.8",
+    "python-dotenv>=1.0.0",
+    "tenacity>=8.0.0",
     "smbprotocol>=1.15.0",
     "tqdm>=4.0.0",
 ]
