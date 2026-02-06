@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from aiofile import AIOFile
+from langchain_core.runnables import Runnable
 
 from procnumnodocexec.remote_client import RemoteFileClient
 
@@ -27,22 +28,26 @@ class DecisionFileProcessor(FileProcessor):
     EXTRACT_PROMPT = EXTRACT_PROMPT
     CLASSIFY_PROMPT = CLASSIFY_PROMPT
 
-    def __init__(self, extract_chain=None, classify_chain=None) -> None:
-        self._extract_chain = extract_chain
-        self._classify_chain = classify_chain
+    def __init__(
+        self,
+        extract_chain: Runnable | None = None,
+        classify_chain: Runnable | None = None,
+    ) -> None:
+        self._extract_chain: Runnable | None = extract_chain
+        self._classify_chain: Runnable | None = classify_chain
 
-    @staticmethod
-    async def _parse_decision_in_file(local_file: Path) -> DecisionEnum:
-        print(f"Парсинг файлу: {local_file}")
+    async def _parse_decision_in_file(self, local_file: Path) -> DecisionEnum:
         async with AIOFile(local_file, "rb") as afd:
-            raw_content = await afd.read()
-            content = raw_content.decode("Windows-1251")
-        print(f"Вміст файлу: {content[:1000]}...")
-        return await detect_status_with_llm(
-            content,
-            self._extract_chain,
-            self._classify_chain,
-        )
+            raw_content: bytes | str = await afd.read()
+            if isinstance(raw_content, bytes):
+                content: str = raw_content.decode("Windows-1251")
+            else:
+                content = str(raw_content)
+            return await detect_status_with_llm(
+                content,
+                self._extract_chain,
+                self._classify_chain,
+            )
 
     async def process(self, record: str) -> DecisionEnum | None:
         """
@@ -63,9 +68,7 @@ class DecisionFileProcessor(FileProcessor):
         local_file = None
         try:
             # pass str(...) to satisfy type checkers that expect a string path
-            local_file = await client.download_file(
-                str(record), temp_dir
-            )
+            local_file = await client.download_file(str(record), temp_dir)
             decision = await self._parse_decision_in_file(local_file)
             return decision
 

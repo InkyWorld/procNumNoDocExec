@@ -37,6 +37,7 @@ def get_db_settings() -> SettingsDB:
         port=_get_str("DB_PORT", "5432"),
     )
 
+
 @dataclass(frozen=True)
 class SettingsSMB:
     server: str
@@ -45,6 +46,7 @@ class SettingsSMB:
     password: str
     domain: str = ""
     folder_path: str = ""
+
 
 @lru_cache(maxsize=1)
 def get_smb_settings() -> SettingsSMB:
@@ -57,4 +59,30 @@ def get_smb_settings() -> SettingsSMB:
         domain=_get_str("SMB_DOMAIN", ""),
     )
 
-__all__ = ["SettingsDB", "get_db_settings", "get_smb_settings"]
+
+@dataclass(frozen=True)
+class SettingsAzure:
+    endpoint: str
+    api_version: str = "2025-04-01-preview"
+    model: str = "gpt-4.1-mini"
+    api_key: str = ""
+
+
+@lru_cache(maxsize=1)
+def get_azure_settings() -> SettingsAzure:
+    """Return cached Azure OpenAI settings loaded from the environment/.env."""
+    return SettingsAzure(
+        endpoint=_get_str("AZURE_OPENAI_ENDPOINT", ""),
+        api_version=_get_str("AZURE_OPENAI_API_VERSION", "2025-04-01-preview"),
+        model=_get_str("AZURE_MODEL", "gpt-4.1-mini"),
+        api_key=_get_str("AZURE_API_KEY", ""),
+    )
+
+
+__all__ = [
+    "SettingsDB",
+    "get_db_settings",
+    "get_smb_settings",
+    "SettingsAzure",
+    "get_azure_settings",
+]
