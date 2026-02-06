@@ -4,7 +4,7 @@ from tqdm.asyncio import tqdm  # type: ignore
 
 from .file_handler import FileProcessor
 from .repositories import TablesRepository, ViewRepository
-from .schemas import DecisionEnum, ProcNumExecutionInsertDTO
+from .schemas import DecisionEnum, DocumentDecisionInsertDTO
 
 
 class ParserService:
@@ -35,12 +35,12 @@ class ParserService:
             for record in await self._view_repo.all_recent()
             if record.original_local_path
         ]
-        exec_records: list[ProcNumExecutionInsertDTO] = []
+        exec_records: list[DocumentDecisionInsertDTO] = []
         for record in tqdm(records, desc="Обробка файлів", unit="record"):
             try:
                 original_local_path = record.original_local_path
                 decision = await self._file_processor.process(original_local_path)
-                exec_record = ProcNumExecutionInsertDTO(
+                exec_record = DocumentDecisionInsertDTO(
                     created_at=record.created_at,
                     case_number=record.case_num,
                     proceeding_number=record.proc_num,

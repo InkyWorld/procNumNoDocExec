@@ -7,12 +7,12 @@ from decouple import AutoConfig
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 
-from procnumnodocexec.decision_llm import (
+from .decision_llm import (
     CLASSIFY_PROMPT,
     EXTRACT_PROMPT,
     detect_status_with_llm,
 )
-from procnumnodocexec.file_handler import DecisionFileProcessor
+from .file_handler import DecisionFileProcessor
 
 
 def _project_root() -> Path:

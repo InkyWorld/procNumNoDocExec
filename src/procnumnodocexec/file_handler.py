@@ -4,12 +4,10 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from aiofile import AIOFile
-from langchain_core.runnables import Runnable
-
-from procnumnodocexec.remote_client import RemoteFileClient
+from .remote_client import RemoteFileClient
 
 from .config import PROJECT_ROOT
-from .decision_llm import CLASSIFY_PROMPT, EXTRACT_PROMPT, detect_status_with_llm
+from .decision_llm import detect_status_with_llm
 from .schemas import DecisionEnum
 
 

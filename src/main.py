@@ -3,8 +3,8 @@ from __future__ import annotations
 import asyncio
 
 from procnumnodocexec import (
-    AsyncProcNumNoDocExecRepository,
-    AsyncViewProcNumWithoutVPRepository,
+    AsyncMessageDocumentDecisionRepository,
+    AsyncViewMessageDocumentRepository,
     CompanyEnum,
     DecisionFileProcessor,
     ParserService,
@@ -17,8 +17,8 @@ async def _run() -> None:
     """Wire up repositories and run parser service."""
 
     Session = get_async_sessionmaker()
-    view_repo = AsyncViewProcNumWithoutVPRepository(CompanyEnum.Ace, Session)
-    exec_repo = AsyncProcNumNoDocExecRepository(CompanyEnum.Ace, Session)
+    view_repo = AsyncViewMessageDocumentRepository(CompanyEnum.Ace, Session)
+    exec_repo = AsyncMessageDocumentDecisionRepository(CompanyEnum.Ace, Session)
     extract_chain, classify_chain = get_azure_chains()
 
     file_processor = DecisionFileProcessor(

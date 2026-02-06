@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
+
 class DecisionEnum(Enum):
     POSITIVE = "позитивне"
     NEGATIVE = "негативне"
@@ -13,8 +14,8 @@ class CompanyEnum(Enum):
     Unit = "Unit"
 
 @dataclass(slots=True)
-class ProcNumWithoutVP_DTO:
-    """Record sourced from view ProcNumWithoutVP used for file processing."""
+class message_document_DTO:
+    """Record sourced from view used for file processing."""
     created_at: datetime
     proc_num: str
     case_num: str
@@ -23,7 +24,7 @@ class ProcNumWithoutVP_DTO:
     original_local_path: str
 
 @dataclass(slots=True)
-class ProcNumExecutionInsertDTO:
+class DocumentDecisionInsertDTO:
     """Entity abstraction for inserting data into DB."""
     created_at: datetime
     case_number: str

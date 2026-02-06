@@ -3,16 +3,21 @@ from __future__ import annotations
 from .config import PROJECT_ROOT, SettingsDB, get_db_settings, get_smb_settings
 from .database import create_async_engine, create_tables, get_async_sessionmaker
 from .file_handler import DecisionFileProcessor, FileProcessor
-from .models import Base, ProcNumNoDocExec
-from .remote_client import RemoteFileClient
+from .models import Base, DocsDecisionTable
 from .parser_service import ParserService
+from .remote_client import RemoteFileClient
 from .repositories import (
-    AsyncProcNumNoDocExecRepository,
-    AsyncViewProcNumWithoutVPRepository,
+    AsyncMessageDocumentDecisionRepository,
+    AsyncViewMessageDocumentRepository,
     TablesRepository,
     ViewRepository,
 )
-from .schemas import ProcNumExecutionInsertDTO, ProcNumWithoutVP_DTO, SMBConfig, CompanyEnum
+from .schemas import (
+    CompanyEnum,
+    DocumentDecisionInsertDTO,
+    SMBConfig,
+    message_document_DTO,
+)
 
 __all__ = [
     "PROJECT_ROOT",
@@ -24,15 +29,15 @@ __all__ = [
     "DecisionFileProcessor",
     "FileProcessor",
     "Base",
-    "ProcNumNoDocExec",
+    "DocsDecisionTable",
     "RemoteFileClient",
     "SMBConfig",
-    "AsyncProcNumNoDocExecRepository",
-    "AsyncViewProcNumWithoutVPRepository",
+    "AsyncMessageDocumentDecisionRepository",
+    "AsyncViewMessageDocumentRepository",
     "TablesRepository",
     "ViewRepository",
-    "ProcNumExecutionInsertDTO",
-    "ProcNumWithoutVP_DTO",
+    "DocumentDecisionInsertDTO",
+    "message_document_DTO",
     "ParserService",
     "get_async_sessionmaker",
     "CompanyEnum",

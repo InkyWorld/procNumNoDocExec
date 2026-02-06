@@ -11,8 +11,8 @@ from sqlalchemy import MetaData, Table, delete, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session
 
-from .models import ProcNumNoDocExec
-from .schemas import CompanyEnum, ProcNumExecutionInsertDTO, ProcNumWithoutVP_DTO
+from .models import DocsDecisionTable
+from .schemas import CompanyEnum, DocumentDecisionInsertDTO, message_document_DTO
 
 T = TypeVar("T")
 
@@ -21,17 +21,17 @@ class ViewRepository(ABC):
     """Interface for reading records from view."""
 
     @abstractmethod
-    async def all_recent(self) -> list[ProcNumWithoutVP_DTO]:
+    async def all_recent(self) -> list[message_document_DTO]:
         """Return records pending processing; limit caps the number fetched."""
 
 
 class TablesRepository(ABC):
-    """Interface for writing processed records into procNumNoDocExec table."""
+    """Interface for writing processed records into procDocsDecision table."""
 
     @abstractmethod
     async def bulk_insert(
         self,
-        records: list[ProcNumExecutionInsertDTO],
+        records: list[DocumentDecisionInsertDTO],
     ) -> None:
         """Insert a new execution record and return the persisted entity."""
 
@@ -41,7 +41,7 @@ class TablesRepository(ABC):
         pass
 
 
-class AsyncViewProcNumWithoutVPRepository(ViewRepository):
+class AsyncViewMessageDocumentRepository(ViewRepository):
     """Async implementation reading from view ProcNumWithoutVP."""
 
     def __init__(
@@ -58,30 +58,30 @@ class AsyncViewProcNumWithoutVPRepository(ViewRepository):
             schema="dbo",
         )
 
-    async def all_recent(self) -> list[ProcNumWithoutVP_DTO]:
+    async def all_recent(self) -> list[message_document_DTO]:
         async with self._session_factory() as session:
             # Викликаємо синхронну функцію рефлексії через run_sync
-            procNumNoDocExec_view = await session.run_sync(self._get_reflected_view)
+            procDocsDecision_view = await session.run_sync(self._get_reflected_view)
             #             yesterday = date.today() - timedelta(days=1)
             # yesterday_midnight = datetime.combine(yesterday, time.min)
 
-            # stmt = select(procNumNoDocExec_view).where(
-            #     procNumNoDocExec_view.c.createdAt >= yesterday_midnight
+            # stmt = select(procDocsDecision_view).where(
+            #     procDocsDecision_view.c.createdAt >= yesterday_midnight
             # )
             # Повертаємо тільки записи за останні 7 днів за полем `createdAt`.
             seven_days_ago = datetime.utcnow() - timedelta(days=7)
 
-            stmt = select(procNumNoDocExec_view).where(
-                procNumNoDocExec_view.c.createdAt >= seven_days_ago
+            stmt = select(procDocsDecision_view).where(
+                procDocsDecision_view.c.createdAt >= seven_days_ago
             )
             result = await session.execute(stmt)
             rows = result.mappings().all()
 
-        records: list[ProcNumWithoutVP_DTO] = []
+        records: list[message_document_DTO] = []
         for row in rows:
             # row._mapping надає доступ до колонок за назвою
             records.append(
-                ProcNumWithoutVP_DTO(
+                message_document_DTO(
                     created_at=row["createdAt"],
                     proc_num=row["procNum"],
                     case_num=row["caseNum"],
@@ -93,8 +93,8 @@ class AsyncViewProcNumWithoutVPRepository(ViewRepository):
         return records
 
 
-class AsyncProcNumNoDocExecRepository(TablesRepository):
-    """Async implementation writing into procNumNoDocExec table."""
+class AsyncMessageDocumentDecisionRepository(TablesRepository):
+    """Async implementation writing into procDocsDecision table."""
 
     def __init__(
         self, company: CompanyEnum, session_factory: async_sessionmaker[AsyncSession]
@@ -104,7 +104,7 @@ class AsyncProcNumNoDocExecRepository(TablesRepository):
 
     async def delete_all(self) -> None:
         """Видаляє всі записи з таблиці."""
-        stmt = delete(ProcNumNoDocExec)
+        stmt = delete(DocsDecisionTable)
 
         async with self._session_factory() as session:
             async with session.begin():
@@ -119,13 +119,13 @@ class AsyncProcNumNoDocExecRepository(TablesRepository):
         while batch := list(islice(it, n)):
             yield batch
 
-    async def bulk_insert(self, records: list[ProcNumExecutionInsertDTO]) -> None:
+    async def bulk_insert(self, records: list[DocumentDecisionInsertDTO]) -> None:
         """
         Docstring for bulk_insert
 
         :param self: Description
         :param records: Description
-        :type records: list[ProcNumExecutionInsertDTO]
+        :type records: list[DocumentDecisionInsertDTO]
         """
         # dataclasses may use slots and therefore have no __dict__; use asdict() which supports both
         values_list = [asdict(record) for record in records]
@@ -138,12 +138,12 @@ class AsyncProcNumNoDocExecRepository(TablesRepository):
         async with self._session_factory() as session:
             async with session.begin():
                 for batch in self._chunked(values_list, 2000):
-                    await session.execute(insert(ProcNumNoDocExec), batch)
+                    await session.execute(insert(DocsDecisionTable), batch)
 
 
 __all__ = [
     "ViewRepository",
     "TablesRepository",
-    "AsyncViewProcNumWithoutVPRepository",
-    "AsyncProcNumNoDocExecRepository",
+    "AsyncViewMessageDocumentRepository",
+    "AsyncMessageDocumentDecisionRepository",
 ]
