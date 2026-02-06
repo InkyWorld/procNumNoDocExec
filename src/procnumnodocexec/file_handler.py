@@ -24,19 +24,12 @@ class FileProcessor(ABC):
 class DecisionFileProcessor(FileProcessor):
     """Placeholder implementation to be replaced with real processing logic."""
 
-    # Re-export prompts so external code can build chains using this class
-    EXTRACT_PROMPT = EXTRACT_PROMPT
-    CLASSIFY_PROMPT = CLASSIFY_PROMPT
-
-    def __init__(
-        self,
-        extract_chain: Runnable | None = None,
-        classify_chain: Runnable | None = None,
-    ) -> None:
-        self._extract_chain: Runnable | None = extract_chain
-        self._classify_chain: Runnable | None = classify_chain
+    def __init__(self, extract_chain=None, classify_chain=None) -> None:
+        self._extract_chain = extract_chain
+        self._classify_chain = classify_chain
 
     async def _parse_decision_in_file(self, local_file: Path) -> DecisionEnum:
+        print(f"Парсинг файлу: {local_file}")
         async with AIOFile(local_file, "rb") as afd:
             raw_content: bytes | str = await afd.read()
             if isinstance(raw_content, bytes):
