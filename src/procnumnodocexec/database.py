@@ -12,7 +12,16 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from .config import SettingsDB, get_db_settings
-from .models import Base
+from .models import SCHEMA_NAME, Base
+
+
+def _get_connect_args(use_async_driver: bool) -> dict[str, object]:
+    search_path = f"{SCHEMA_NAME},public"
+    if use_async_driver:
+        return {"server_settings": {"search_path": search_path}}
+
+    return {"options": f"-csearch_path={search_path}"}
+
 
 def build_connection_url(
     settings: SettingsDB | None = None, use_async_driver: bool = False
@@ -35,14 +44,22 @@ def build_connection_url(
 def get_engine(echo: bool = False) -> Engine:
     """Create a synchronous SQLAlchemy engine."""
 
-    return create_engine(build_connection_url(), echo=echo, future=True)
+    return create_engine(
+        build_connection_url(),
+        echo=echo,
+        future=True,
+        connect_args=_get_connect_args(use_async_driver=False),
+    )
 
 
 def get_async_engine(echo: bool = False) -> AsyncEngine:
     """Create an asynchronous SQLAlchemy engine using an asyncio-compatible driver."""
 
     return create_async_engine(
-        build_connection_url(use_async_driver=True), echo=echo, future=True
+        build_connection_url(use_async_driver=True),
+        echo=echo,
+        future=True,
+        connect_args=_get_connect_args(use_async_driver=True),
     )
 
 
@@ -65,7 +82,8 @@ def create_tables(engine: Engine | None = None) -> None:
     """Create tables synchronously if they do not exist."""
 
     engine = engine or get_engine()
-    Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        Base.metadata.create_all(conn)
 
 
 __all__ = [

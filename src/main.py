@@ -17,8 +17,9 @@ async def _run() -> None:
     """Wire up repositories and run parser service."""
 
     Session = get_async_sessionmaker()
-    view_repo = AsyncViewMessageDocumentRepository(CompanyEnum.Ace, Session)
-    exec_repo = AsyncMessageDocumentDecisionRepository(CompanyEnum.Ace, Session)
+    company = CompanyEnum.Unit
+    view_repo = AsyncViewMessageDocumentRepository(company, Session)
+    exec_repo = AsyncMessageDocumentDecisionRepository(company, Session)
     extract_chain, classify_chain = get_azure_chains()
 
     file_processor = DecisionFileProcessor(
@@ -26,7 +27,10 @@ async def _run() -> None:
     )
 
     service = ParserService(
-        view_repo=view_repo, exec_repo=exec_repo, file_processor=file_processor
+        view_repo=view_repo,
+        exec_repo=exec_repo,
+        file_processor=file_processor,
+        company=company,
     )
     await service.run()
 
@@ -35,5 +39,5 @@ def main() -> None:
     asyncio.run(_run())
 
 
-if __name__ == "__main__":  # pragma: no cover - CLI entry
+if __name__ == "__main__":
     main()

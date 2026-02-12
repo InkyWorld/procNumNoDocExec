@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from enum import Enum
 
 
@@ -9,28 +10,48 @@ class DecisionEnum(Enum):
     PARTIAL = "часткове"
     UNKNOWN = "невідоме"
 
+
+@dataclass(slots=True)
+class DecisionAnalysisResult:
+    decision: DecisionEnum
+    main_amount: Decimal | None = None
+    court_fee: Decimal | None = None
+    legal_aid: Decimal | None = None
+    date_of_decision: date | None = None
+
+
 class CompanyEnum(Enum):
     Ace = "Ace"
     Unit = "Unit"
 
+
 @dataclass(slots=True)
 class message_document_DTO:
     """Record sourced from view used for file processing."""
-    created_at: datetime
-    proc_num: str
-    case_num: str
-    doc_type_name: str
-    description: str
-    original_local_path: str
+
+    message_createdAt: datetime
+    message_description: str
+    procNum: str
+    caseNum: str
+    local_path: str
+
 
 @dataclass(slots=True)
 class DocumentDecisionInsertDTO:
     """Entity abstraction for inserting data into DB."""
-    created_at: datetime
-    case_number: str
-    proceeding_number: str
+
+    createdAt: datetime
+    caseNum: str
+    procNum: str
     decision: DecisionEnum
+    main_amount: Decimal | None
+    court_fee: Decimal | None
+    legal_aid: Decimal | None
+    collector: str
+    date_of_decision: date | None
+    docType: str
     local_file_path: str
+
 
 @dataclass
 class SMBConfig:
@@ -39,6 +60,3 @@ class SMBConfig:
     username: str
     password: str
     domain: str = ""
-
-
-

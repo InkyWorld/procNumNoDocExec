@@ -103,12 +103,17 @@ async def main() -> None:
             continue
         try:
             content = _read_file_text(path)
-            decision = await detect_status_with_llm(
+            result = await detect_status_with_llm(
                 content,
                 file_processor._extract_chain,
                 file_processor._classify_chain,
             )
-            print(f"  {path.name}  ->  {decision.value}")
+            print(
+                f"  {path.name}  ->  {result.decision.value}"
+                f" | main={result.main_amount}"
+                f" | fee={result.court_fee}"
+                f" | aid={result.legal_aid}"
+            )
         except Exception as e:
             print(f"  {path.name}  ->  ERROR: {e}")
 

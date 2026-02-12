@@ -3,11 +3,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
 from dataclasses import asdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from itertools import islice
 from typing import TypeVar
 
-from sqlalchemy import MetaData, Table, delete, insert, select
+from sqlalchemy import MetaData, Table, delete, func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session
 
@@ -52,7 +52,7 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
 
     def _get_reflected_view(self, session: Session) -> Table:
         return Table(
-            f"ProcNumWithoutVP{self.company.value}",
+            f"_message_documents_{self.company.value}",
             MetaData(),
             autoload_with=session.connection(),
             schema="dbo",
@@ -68,11 +68,17 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
             # stmt = select(procDocsDecision_view).where(
             #     procDocsDecision_view.c.createdAt >= yesterday_midnight
             # )
-            # Повертаємо тільки записи за останні 7 днів за полем `createdAt`.
-            seven_days_ago = datetime.utcnow() - timedelta(days=7)
+            # Повертаємо записи за локальним діапазоном 2026-01-21..2026-01-24.
+            range_start = datetime(2025, 12, 1)
+            range_end = datetime(2025, 12, 8)
 
             stmt = select(procDocsDecision_view).where(
-                procDocsDecision_view.c.createdAt >= seven_days_ago
+                func.timezone("Europe/Kyiv", procDocsDecision_view.c.message_createdAt)
+                >= range_start,
+                func.timezone("Europe/Kyiv", procDocsDecision_view.c.message_createdAt)
+                < range_end,
+                procDocsDecision_view.c.message_description.ilike("%рішен%"),
+                procDocsDecision_view.c.local_path.isnot(None),
             )
             result = await session.execute(stmt)
             rows = result.mappings().all()
@@ -82,12 +88,11 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
             # row._mapping надає доступ до колонок за назвою
             records.append(
                 message_document_DTO(
-                    created_at=row["createdAt"],
-                    proc_num=row["procNum"],
-                    case_num=row["caseNum"],
-                    doc_type_name=row["docTypeName"],
-                    description=row["description"],
-                    original_local_path=row["originalLocalPath"],
+                    message_createdAt=row["message_createdAt"],
+                    message_description=row["message_description"],
+                    procNum=row["procNum"],
+                    caseNum=row["caseNum"],
+                    local_path=row["local_path"],
                 )
             )
         return records

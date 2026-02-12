@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 class RemoteFileClient:
     """Асинхронний клієнт для роботи з віддаленими файлами через протокол SMB."""
 
+    _download_semaphore = asyncio.Semaphore(1)
+
     def __init__(self):
         self._config = get_smb_settings()
         self._session_registered = False
@@ -75,6 +77,16 @@ class RemoteFileClient:
 
         # 1. Готуємо шлях для SMB (Windows-стандарт)
         clean_remote_path = str(remote_rel_path).replace("/", "\\").lstrip("\\")
+        if clean_remote_path.startswith("\\"):
+            unc_path = clean_remote_path
+        else:
+            base_folder = "Utils\\Storage"
+            if not clean_remote_path.lower().startswith(base_folder.lower() + "\\"):
+                clean_remote_path = f"{base_folder}\\{clean_remote_path}"
+
+            server = self._config.server.strip("\\")
+            share = self._config.share.strip("\\")
+            unc_path = f"\\\\{server}\\{share}\\{clean_remote_path}"
 
         # 2. Формуємо повний локальний шлях до файлу
         # Витягуємо ім'я файлу (працює коректно, навіть якщо скрипт на Linux)
@@ -82,15 +94,16 @@ class RemoteFileClient:
         final_local_path = local_dest / file_name
 
         try:
-            logger.info(f"Starting download: {clean_remote_path} -> {final_local_path}")
+            async with self._download_semaphore:
+                logger.info(f"Starting download: {unc_path} -> {final_local_path}")
 
-            # 3. Запускаємо скачування, передаючи повний шлях до файлу
-            await asyncio.to_thread(
-                self._sync_download_task, clean_remote_path, final_local_path
-            )
+                # 3. Запускаємо скачування, передаючи повний шлях до файлу
+                await asyncio.to_thread(
+                    self._sync_download_task, unc_path, final_local_path
+                )
 
-            return final_local_path
+                return final_local_path
 
         except Exception as e:
-            logger.error(f"Error downloading file {clean_remote_path}: {e}")
+            logger.error(f"Error downloading file {unc_path}: {e}")
             raise

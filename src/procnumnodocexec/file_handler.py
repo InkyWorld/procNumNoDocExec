@@ -4,18 +4,18 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from aiofile import AIOFile
-from .remote_client import RemoteFileClient
 
 from .config import PROJECT_ROOT
 from .decision_llm import detect_status_with_llm
-from .schemas import DecisionEnum
+from .remote_client import RemoteFileClient
+from .schemas import DecisionAnalysisResult
 
 
 class FileProcessor(ABC):
     """Interface for handling files referenced by ProcNumWithoutVP records."""
 
     @abstractmethod
-    async def process(self, record: str) -> DecisionEnum | None:
+    async def process(self, record: str) -> DecisionAnalysisResult | None:
         """Process the file at local folder"""
 
 
@@ -26,8 +26,7 @@ class DecisionFileProcessor(FileProcessor):
         self._extract_chain = extract_chain
         self._classify_chain = classify_chain
 
-    async def _parse_decision_in_file(self, local_file: Path) -> DecisionEnum:
-        print(f"Парсинг файлу: {local_file}")
+    async def _parse_decision_in_file(self, local_file: Path) -> DecisionAnalysisResult:
         async with AIOFile(local_file, "rb") as afd:
             raw_content: bytes | str = await afd.read()
             if isinstance(raw_content, bytes):
@@ -40,7 +39,7 @@ class DecisionFileProcessor(FileProcessor):
                 self._classify_chain,
             )
 
-    async def process(self, record: str) -> DecisionEnum | None:
+    async def process(self, record: str) -> DecisionAnalysisResult | None:
         """
         Docstring for process
 
@@ -60,8 +59,8 @@ class DecisionFileProcessor(FileProcessor):
         try:
             # pass str(...) to satisfy type checkers that expect a string path
             local_file = await client.download_file(str(record), temp_dir)
-            decision = await self._parse_decision_in_file(local_file)
-            return decision
+            result = await self._parse_decision_in_file(local_file)
+            return result
 
         except Exception as e:
             print(f"Не вдалося обробити файл: {e}")
