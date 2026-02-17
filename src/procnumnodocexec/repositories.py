@@ -7,12 +7,17 @@ from datetime import datetime
 from itertools import islice
 from typing import TypeVar
 
-from sqlalchemy import MetaData, Table, delete, func, insert, select
+from sqlalchemy import MetaData, Table, and_, delete, func, insert, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session
 
 from .models import DocsDecisionTable
-from .schemas import CompanyEnum, DocumentDecisionInsertDTO, message_document_DTO, DateRange
+from .schemas import (
+    CompanyEnum,
+    DocumentDecisionInsertDTO,
+    message_document_DTO,
+    DateRange,
+)
 
 T = TypeVar("T")
 
@@ -21,7 +26,11 @@ class ViewRepository(ABC):
     """Interface for reading records from view."""
 
     @abstractmethod
-    async def all_recent(self, date_range: DateRange, ilike_filter: str | None) -> list[message_document_DTO]:
+    async def all_recent(
+        self,
+        date_range: DateRange,
+        ilike_filter: list[str] | list[list[str]] | str | None,
+    ) -> list[message_document_DTO]:
         """Return records pending processing; limit caps the number fetched."""
 
 
@@ -58,7 +67,11 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
             schema="dbo",
         )
 
-    async def all_recent(self, date_range: DateRange, ilike_filter: str | None) -> list[message_document_DTO]:
+    async def all_recent(
+        self,
+        date_range: DateRange,
+        ilike_filter: list[str] | list[list[str]] | str | None,
+    ) -> list[message_document_DTO]:
         async with self._session_factory() as session:
             # Викликаємо синхронну функцію рефлексії через run_sync
             procDocsDecision_view = await session.run_sync(self._get_reflected_view)
@@ -69,8 +82,12 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
             #     procDocsDecision_view.c.createdAt >= yesterday_midnight
             # )
             # Повертаємо записи за локальним діапазоном 2026-01-21..2026-01-24.
-            range_start = datetime(date_range.start_year, date_range.start_month, date_range.start_day)
-            range_end = datetime(date_range.end_year, date_range.end_month, date_range.end_day)
+            range_start = datetime(
+                date_range.start_year, date_range.start_month, date_range.start_day
+            )
+            range_end = datetime(
+                date_range.end_year, date_range.end_month, date_range.end_day
+            )
 
             stmt = select(procDocsDecision_view).where(
                 func.timezone("Europe/Kyiv", procDocsDecision_view.c.message_createdAt)
@@ -80,10 +97,49 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
                 procDocsDecision_view.c.local_path.isnot(None),
             )
             if ilike_filter:
-                stmt = stmt.where(procDocsDecision_view.c.message_description.ilike(f"%{ilike_filter}%"))
+                # 1️⃣ Якщо це рядок
+                if isinstance(ilike_filter, str):
+                    stmt = stmt.where(
+                        procDocsDecision_view.c.message_description.ilike(
+                            f"%{ilike_filter}%"
+                        )
+                    )
+
+                # 2️⃣ Якщо це список
+                else:
+                    # Перевіряємо: список списків?
+                    if all(isinstance(group, list) for group in ilike_filter):
+                        # (OR ... ) AND (OR ...)
+                        stmt = stmt.where(
+                            and_(
+                                *[
+                                    or_(
+                                        *[
+                                            procDocsDecision_view.c.message_description.ilike(
+                                                f"%{word}%"
+                                            )
+                                            for word in group
+                                        ]
+                                    )
+                                    for group in ilike_filter
+                                ]
+                            )
+                        )
+
+                    else:
+                        # Простий OR між словами
+                        stmt = stmt.where(
+                            or_(
+                                *[
+                                    procDocsDecision_view.c.message_description.ilike(
+                                        f"%{word}%"
+                                    )
+                                    for word in ilike_filter
+                                ]
+                            )
+                        )
             result = await session.execute(stmt)
             rows = result.mappings().all()
-
         records: list[message_document_DTO] = []
         for row in rows:
             # row._mapping надає доступ до колонок за назвою
