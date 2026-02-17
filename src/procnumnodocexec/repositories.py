@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session
 
 from .models import DocsDecisionTable
-from .schemas import CompanyEnum, DocumentDecisionInsertDTO, message_document_DTO
+from .schemas import CompanyEnum, DocumentDecisionInsertDTO, message_document_DTO, DateRange
 
 T = TypeVar("T")
 
@@ -21,7 +21,7 @@ class ViewRepository(ABC):
     """Interface for reading records from view."""
 
     @abstractmethod
-    async def all_recent(self) -> list[message_document_DTO]:
+    async def all_recent(self, date_range: DateRange, ilike_filter: str | None) -> list[message_document_DTO]:
         """Return records pending processing; limit caps the number fetched."""
 
 
@@ -58,7 +58,7 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
             schema="dbo",
         )
 
-    async def all_recent(self) -> list[message_document_DTO]:
+    async def all_recent(self, date_range: DateRange, ilike_filter: str | None) -> list[message_document_DTO]:
         async with self._session_factory() as session:
             # Викликаємо синхронну функцію рефлексії через run_sync
             procDocsDecision_view = await session.run_sync(self._get_reflected_view)
@@ -69,17 +69,18 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
             #     procDocsDecision_view.c.createdAt >= yesterday_midnight
             # )
             # Повертаємо записи за локальним діапазоном 2026-01-21..2026-01-24.
-            range_start = datetime(2025, 12, 1)
-            range_end = datetime(2025, 12, 8)
+            range_start = datetime(date_range.start_year, date_range.start_month, date_range.start_day)
+            range_end = datetime(date_range.end_year, date_range.end_month, date_range.end_day)
 
             stmt = select(procDocsDecision_view).where(
                 func.timezone("Europe/Kyiv", procDocsDecision_view.c.message_createdAt)
                 >= range_start,
                 func.timezone("Europe/Kyiv", procDocsDecision_view.c.message_createdAt)
                 < range_end,
-                procDocsDecision_view.c.message_description.ilike("%рішен%"),
                 procDocsDecision_view.c.local_path.isnot(None),
             )
+            if ilike_filter:
+                stmt = stmt.where(procDocsDecision_view.c.message_description.ilike(f"%{ilike_filter}%"))
             result = await session.execute(stmt)
             rows = result.mappings().all()
 

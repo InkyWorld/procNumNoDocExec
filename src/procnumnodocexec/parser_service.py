@@ -8,6 +8,7 @@ from .file_handler import FileProcessor
 from .repositories import TablesRepository, ViewRepository
 from .schemas import (
     CompanyEnum,
+    DateRange,
     DecisionAnalysisResult,
     DecisionEnum,
     DocumentDecisionInsertDTO,
@@ -31,7 +32,8 @@ class ParserService:
         self._company = company
 
     async def run(self) -> None:
-        records = await self._view_repo.all_recent()
+        records = await self._view_repo.all_recent(date_range=DateRange(
+            start_year=2026, start_month=2, start_day=2, end_year=2026, end_month=2, end_day=9), ilike_filter="рішен")
 
         semaphore = asyncio.Semaphore(10)
 

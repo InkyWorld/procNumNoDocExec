@@ -60,3 +60,12 @@ class SMBConfig:
     username: str
     password: str
     domain: str = ""
+
+@dataclass
+class DateRange:
+    start_year: int
+    start_month: int
+    start_day: int
+    end_year: int
+    end_month: int
+    end_day: int
