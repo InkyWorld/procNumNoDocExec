@@ -25,6 +25,7 @@ class DecisionFileProcessor(FileProcessor):
     def __init__(self, extract_chain=None, classify_chain=None) -> None:
         self._extract_chain = extract_chain
         self._classify_chain = classify_chain
+        self._client = RemoteFileClient()
 
     async def _parse_decision_in_file(self, local_file: Path) -> DecisionAnalysisResult:
         async with AIOFile(local_file, "rb") as afd:
@@ -49,8 +50,6 @@ class DecisionFileProcessor(FileProcessor):
         :return: Description
         :rtype: Decision | None (None if process failed)
         """
-        client = RemoteFileClient()
-
         # 2. Визначаємо, куди зберігати тимчасово
         temp_dir = PROJECT_ROOT / "tmp"
         temp_dir.mkdir(parents=True, exist_ok=True)
@@ -58,7 +57,7 @@ class DecisionFileProcessor(FileProcessor):
         local_file = None
         try:
             # pass str(...) to satisfy type checkers that expect a string path
-            local_file = await client.download_file(str(record), temp_dir)
+            local_file = await self._client.download_file(str(record), temp_dir)
             result = await self._parse_decision_in_file(local_file)
             return result
 
