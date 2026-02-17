@@ -18,6 +18,7 @@ class DecisionAnalysisResult:
     court_fee: Decimal | None = None
     legal_aid: Decimal | None = None
     date_of_decision: date | None = None
+    execution_doc_issue_date: date | None = None
 
 
 class CompanyEnum(Enum):

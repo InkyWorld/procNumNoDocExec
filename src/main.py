@@ -10,7 +10,10 @@ from procnumnodocexec import (
     ParserService,
     get_async_sessionmaker,
 )
-from procnumnodocexec.llm_provider import get_azure_chains
+from procnumnodocexec.llm_provider import (
+    get_azure_chains,
+    get_azure_execution_doc_chains,
+)
 
 
 async def _run() -> None:
@@ -21,9 +24,13 @@ async def _run() -> None:
     view_repo = AsyncViewMessageDocumentRepository(company, Session)
     exec_repo = AsyncMessageDocumentDecisionRepository(company, Session)
     extract_chain, classify_chain = get_azure_chains()
+    exec_extract_chain, exec_classify_chain = get_azure_execution_doc_chains()
 
     file_processor = DecisionFileProcessor(
-        extract_chain=extract_chain, classify_chain=classify_chain
+        extract_chain=extract_chain,
+        classify_chain=classify_chain,
+        execution_extract_chain=exec_extract_chain,
+        execution_classify_chain=exec_classify_chain,
     )
 
     service = ParserService(

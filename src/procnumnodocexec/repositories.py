@@ -58,7 +58,7 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
             schema="dbo",
         )
 
-    async def all_recent(self, date_range: DateRange, ilike_filter: str | None) -> list[message_document_DTO]:
+    async def all_recent(self, date_range: DateRange, ilike_filters: list[str] | None) -> list[message_document_DTO]:
         async with self._session_factory() as session:
             # Викликаємо синхронну функцію рефлексії через run_sync
             procDocsDecision_view = await session.run_sync(self._get_reflected_view)
