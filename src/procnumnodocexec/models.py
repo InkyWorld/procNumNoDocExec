@@ -17,7 +17,7 @@ class Base(DeclarativeBase):
 
 
 class DocsDecisionTable(Base):
-    __tablename__ = "docs_decision_test"
+    __tablename__ = "docs_decision"
     __table_args__ = {"schema": SCHEMA_NAME}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

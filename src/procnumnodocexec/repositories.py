@@ -69,8 +69,8 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
             #     procDocsDecision_view.c.createdAt >= yesterday_midnight
             # )
             # Повертаємо записи за локальним діапазоном 2026-01-21..2026-01-24.
-            range_start = datetime(2025, 12, 1)
-            range_end = datetime(2025, 12, 8)
+            range_start = datetime(2026, 2, 2)
+            range_end = datetime(2026, 2, 9)
 
             stmt = select(procDocsDecision_view).where(
                 func.timezone("Europe/Kyiv", procDocsDecision_view.c.message_createdAt)
