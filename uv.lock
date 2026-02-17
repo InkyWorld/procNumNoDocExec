@@ -609,13 +609,14 @@ wheels = [
 ]
 
 [[package]]
-name = "procDocsDecision"
+name = "procdocsdecision"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aiofile" },
     { name = "aioodbc" },
     { name = "asyncpg" },
+    { name = "greenlet" },
     { name = "langchain-core" },
     { name = "langchain-openai" },
     { name = "psycopg2-binary" },
@@ -633,6 +634,7 @@ requires-dist = [
     { name = "aiofile", specifier = ">=3.9.0" },
     { name = "aioodbc", specifier = ">=0.3.0" },
     { name = "asyncpg", specifier = ">=0.29.0" },
+    { name = "greenlet", specifier = ">=3.3.0" },
     { name = "langchain-core", specifier = ">=0.3.0" },
     { name = "langchain-openai", specifier = ">=0.2.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.0" },
