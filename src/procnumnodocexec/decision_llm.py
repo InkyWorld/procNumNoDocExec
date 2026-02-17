@@ -22,6 +22,21 @@ from .schemas import DecisionAnalysisResult, DecisionEnum
 
 logger = logging.getLogger(__name__)
 
+UK_MONTHS = {
+    "січня": 1,
+    "лютого": 2,
+    "березня": 3,
+    "квітня": 4,
+    "травня": 5,
+    "червня": 6,
+    "липня": 7,
+    "серпня": 8,
+    "вересня": 9,
+    "жовтня": 10,
+    "листопада": 11,
+    "грудня": 12,
+}
+
 
 # Timeout per LLM call
 DEFAULT_LLM_TIMEOUT = 60
@@ -170,10 +185,19 @@ def _parse_date(value: Any) -> date | None:
     text = str(value).strip()
     if not text or text.lower() in {"null", "none", "n/a"}:
         return None
+
+    iso_match = re.search(r"(\d{4}-\d{1,2}-\d{1,2})", text)
+    if iso_match:
+        try:
+            return date.fromisoformat(iso_match.group(1))
+        except ValueError:
+            pass
+
     try:
         return date.fromisoformat(text)
     except ValueError:
         pass
+
     match = re.search(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", text)
     if match:
         day, month, year = match.groups()
@@ -181,6 +205,40 @@ def _parse_date(value: Any) -> date | None:
             return date(int(year), int(month), int(day))
         except ValueError:
             return None
+
+    word_month_match = re.search(
+        r"['\"«»„“”]?\s*(\d{1,2})\s*['\"«»„“”]?\s+([а-щьюяіїєґ']+)\s+(\d{4})(?:\s*(?:року|р\.?))?",
+        text.lower(),
+    )
+    if word_month_match:
+        day, month_name, year = word_month_match.groups()
+        month = UK_MONTHS.get(month_name)
+        if month is not None:
+            try:
+                return date(int(year), month, int(day))
+            except ValueError:
+                return None
+
+    return None
+
+
+def _extract_date_from_header(text: str) -> date | None:
+    header = _normalize_text(text)[:1200]
+    candidate_patterns = [
+        r"\d{4}-\d{1,2}-\d{1,2}",
+        r"\d{1,2}\.\d{1,2}\.\d{4}",
+        r"['\"«»„“”]?\s*\d{1,2}\s*['\"«»„“”]?\s+[а-щьюяіїєґ']+\s+\d{4}(?:\s*(?:року|р\.?))?",
+    ]
+    matches: list[tuple[int, str]] = []
+    for pattern in candidate_patterns:
+        for m in re.finditer(pattern, header, flags=re.IGNORECASE):
+            matches.append((m.start(), m.group(0)))
+
+    for _, candidate in sorted(matches, key=lambda x: x[0]):
+        parsed = _parse_date(candidate)
+        if parsed is not None:
+            return parsed
+
     return None
 
 
@@ -276,6 +334,9 @@ async def detect_status_with_llm(
         decision = _parse_decision_status(parsed.get("status")) if parsed else None
         if decision is None:
             decision = fallback_keyword_decision(response_text)
+        parsed_date = _parse_date(parsed.get("decision_date")) if parsed else None
+        if parsed_date is None:
+            parsed_date = _extract_date_from_header(header_text)
 
         return DecisionAnalysisResult(
             decision=decision,
@@ -284,9 +345,7 @@ async def detect_status_with_llm(
             else None,
             court_fee=_parse_amount(parsed.get("court_fee_uah")) if parsed else None,
             legal_aid=_parse_amount(parsed.get("legal_aid_uah")) if parsed else None,
-            date_of_decision=_parse_date(parsed.get("decision_date"))
-            if parsed
-            else None,
+            date_of_decision=parsed_date,
         )
     except (TimeoutError, ConnectionError, OSError) as e:
         logger.warning(
