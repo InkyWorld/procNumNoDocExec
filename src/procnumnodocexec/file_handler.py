@@ -7,6 +7,7 @@ from aiofile import AIOFile
 
 from .config import PROJECT_ROOT
 from .decision_llm import detect_status_with_llm
+from .execution_doc_llm import extract_execution_doc_data_with_llm
 from .remote_client import RemoteFileClient
 from .schemas import DecisionAnalysisResult
 
@@ -22,22 +23,53 @@ class FileProcessor(ABC):
 class DecisionFileProcessor(FileProcessor):
     """Placeholder implementation to be replaced with real processing logic."""
 
-    def __init__(self, extract_chain=None, classify_chain=None) -> None:
+    def __init__(
+        self,
+        extract_chain=None,
+        classify_chain=None,
+        execution_extract_chain=None,
+        execution_classify_chain=None,
+    ) -> None:
         self._extract_chain = extract_chain
         self._classify_chain = classify_chain
+        self._execution_extract_chain = execution_extract_chain
+        self._execution_classify_chain = execution_classify_chain
         self._client = RemoteFileClient()
+
+    @staticmethod
+    def _decode_bytes(raw_content: bytes) -> str:
+        for encoding in ("windows-1251", "utf-8"):
+            try:
+                return raw_content.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+        return raw_content.decode("utf-8", errors="replace")
 
     async def _parse_decision_in_file(self, local_file: Path) -> DecisionAnalysisResult:
         async with AIOFile(local_file, "rb") as afd:
             raw_content: bytes | str = await afd.read()
             if isinstance(raw_content, bytes):
-                content: str = raw_content.decode("Windows-1251")
+                content = self._decode_bytes(raw_content)
             else:
                 content = str(raw_content)
-            return await detect_status_with_llm(
+
+            decision_result = await detect_status_with_llm(
                 content,
                 self._extract_chain,
                 self._classify_chain,
+            )
+            exec_doc_result = await extract_execution_doc_data_with_llm(
+                content,
+                self._execution_extract_chain,
+                self._execution_classify_chain,
+            )
+            return DecisionAnalysisResult(
+                decision=decision_result.decision,
+                main_amount=exec_doc_result.main_amount or decision_result.main_amount,
+                court_fee=exec_doc_result.court_fee or decision_result.court_fee,
+                legal_aid=exec_doc_result.legal_aid or decision_result.legal_aid,
+                date_of_decision=decision_result.date_of_decision,
+                execution_doc_issue_date=exec_doc_result.execution_doc_issue_date,
             )
 
     async def process(self, record: str) -> DecisionAnalysisResult | None:

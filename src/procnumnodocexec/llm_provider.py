@@ -7,24 +7,21 @@ from langchain_core.runnables import Runnable
 
 from .config import get_azure_settings
 from .decision_llm import CLASSIFY_PROMPT, EXTRACT_PROMPT
+from .execution_doc_llm import CLASSIFY_EXEC_DOC_PROMPT, EXTRACT_EXEC_DOC_PROMPT
 
 logger = logging.getLogger(__name__)
 
 
-def get_azure_chains() -> Tuple[Runnable | None, Runnable | None]:
-    """Return (extract_chain, classify_chain) built from Azure settings or (None, None).
-
-    This isolates Azure wiring from `main.py` so the entrypoint stays tidy.
-    """
+def _build_azure_llm() -> Any | None:
     azure = get_azure_settings()
     if not (azure.endpoint and azure.api_key and azure.model):
-        return None, None
+        return None
 
     try:
         from langchain_openai import AzureChatOpenAI  # type: ignore
     except Exception:  # pragma: no cover - best-effort import
         logger.debug("langchain_openai not available; skipping Azure LLM")
-        return None, None
+        return None
 
     base_kwargs: dict[str, Any] = {
         "azure_endpoint": azure.endpoint.rstrip("/"),
@@ -51,12 +48,34 @@ def get_azure_chains() -> Tuple[Runnable | None, Runnable | None]:
 
     if llm is None:
         logger.debug("Failed to instantiate AzureChatOpenAI; skipping chains")
+        return None
+
+    logger.info("Using Azure OpenAI deployment: %s", azure.model)
+    return llm
+
+
+def get_azure_chains() -> Tuple[Runnable | None, Runnable | None]:
+    """Return (extract_chain, classify_chain) for decision parsing."""
+
+    llm = _build_azure_llm()
+    if llm is None:
         return None, None
 
     extract_chain = EXTRACT_PROMPT | llm
     classify_chain = CLASSIFY_PROMPT | llm
-    logger.info("Using Azure OpenAI deployment: %s", azure.model)
     return extract_chain, classify_chain
 
 
-__all__ = ["get_azure_chains"]
+def get_azure_execution_doc_chains() -> Tuple[Runnable | None, Runnable | None]:
+    """Return (extract_chain, classify_chain) for execution document parsing."""
+
+    llm = _build_azure_llm()
+    if llm is None:
+        return None, None
+
+    extract_chain = EXTRACT_EXEC_DOC_PROMPT | llm
+    classify_chain = CLASSIFY_EXEC_DOC_PROMPT | llm
+    return extract_chain, classify_chain
+
+
+__all__ = ["get_azure_chains", "get_azure_execution_doc_chains"]
