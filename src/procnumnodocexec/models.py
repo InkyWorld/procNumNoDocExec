@@ -60,6 +60,11 @@ class DocsDecisionTable(Base):
         nullable=True,
         comment="Дата рішення (з тексту)",
     )
+    date_of_issuance: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
+        comment="Дата видачі виконавчого документа",
+    )
     docType: Mapped[str] = mapped_column(
         String(100), nullable=False, comment="Тип документу"
     )

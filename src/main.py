@@ -39,7 +39,8 @@ async def _run() -> None:
         file_processor=file_processor,
         company=company,
     )
-    await service.run()
+    # await service.run()
+    await service.run_exec()
 
 
 def main() -> None:

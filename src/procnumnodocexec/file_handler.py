@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import TypeVar
 
 from aiofile import AIOFile
 
@@ -9,14 +11,20 @@ from .config import PROJECT_ROOT
 from .decision_llm import detect_status_with_llm
 from .execution_doc_llm import extract_execution_doc_data_with_llm
 from .remote_client import RemoteFileClient
-from .schemas import DecisionAnalysisResult
+from .schemas import DecisionAnalysisResult, ExecAnalysisResult
+
+TResult = TypeVar("TResult")
 
 
 class FileProcessor(ABC):
     """Interface for handling files referenced by ProcNumWithoutVP records."""
 
     @abstractmethod
-    async def process(self, record: str) -> DecisionAnalysisResult | None:
+    async def process_decision(self, record: str) -> DecisionAnalysisResult | None:
+        """Process the file at local folder"""
+
+    @abstractmethod
+    async def process_exec(self, record: str) -> ExecAnalysisResult | None:
         """Process the file at local folder"""
 
 
@@ -45,62 +53,74 @@ class DecisionFileProcessor(FileProcessor):
                 continue
         return raw_content.decode("utf-8", errors="replace")
 
-    async def _parse_decision_in_file(self, local_file: Path) -> DecisionAnalysisResult:
+    async def _read_text_file(self, local_file: Path) -> str:
         async with AIOFile(local_file, "rb") as afd:
             raw_content: bytes | str = await afd.read()
             if isinstance(raw_content, bytes):
-                content = self._decode_bytes(raw_content)
-            else:
-                content = str(raw_content)
+                return self._decode_bytes(raw_content)
+            return str(raw_content)
 
-            decision_result = await detect_status_with_llm(
-                content,
-                self._extract_chain,
-                self._classify_chain,
-            )
-            exec_doc_result = await extract_execution_doc_data_with_llm(
-                content,
-                self._execution_extract_chain,
-                self._execution_classify_chain,
-            )
-            return DecisionAnalysisResult(
-                decision=decision_result.decision,
-                main_amount=exec_doc_result.main_amount or decision_result.main_amount,
-                court_fee=exec_doc_result.court_fee or decision_result.court_fee,
-                legal_aid=exec_doc_result.legal_aid or decision_result.legal_aid,
-                date_of_decision=decision_result.date_of_decision,
-                execution_doc_issue_date=exec_doc_result.execution_doc_issue_date,
-            )
+    async def _parse_decision_in_file(self, local_file: Path) -> DecisionAnalysisResult:
+        content = await self._read_text_file(local_file)
 
-    async def process(self, record: str) -> DecisionAnalysisResult | None:
-        """
-        Docstring for process
+        decision_result = await detect_status_with_llm(
+            content,
+            self._extract_chain,
+            self._classify_chain,
+        )
+        exec_doc_result = await extract_execution_doc_data_with_llm(
+            content,
+            self._execution_extract_chain,
+            self._execution_classify_chain,
+        )
+        return DecisionAnalysisResult(
+            decision=decision_result.decision,
+            main_amount=exec_doc_result.main_amount or decision_result.main_amount,
+            court_fee=exec_doc_result.court_fee or decision_result.court_fee,
+            legal_aid=exec_doc_result.legal_aid or decision_result.legal_aid,
+            date_of_decision=decision_result.date_of_decision,
+            execution_doc_issue_date=exec_doc_result.execution_doc_issue_date,
+        )
 
-        :param self: Description
-        :param records: Description
-        :type records: list[str]
-        :return: Description
-        :rtype: Decision | None (None if process failed)
-        """
-        # 2. Визначаємо, куди зберігати тимчасово
+    async def _parse_execution_doc_in_file(self, local_file: Path) -> ExecAnalysisResult:
+        content = await self._read_text_file(local_file)
+        exec_doc_result = await extract_execution_doc_data_with_llm(
+            content,
+            self._execution_extract_chain,
+            self._execution_classify_chain,
+        )
+        return ExecAnalysisResult(
+            date_of_issuance=exec_doc_result.execution_doc_issue_date,
+            main_amount=exec_doc_result.main_amount,
+            court_fee=exec_doc_result.court_fee,
+            legal_aid=exec_doc_result.legal_aid,
+        )
+
+    async def _process_file(
+        self,
+        record: str,
+        parser: Callable[[Path], Awaitable[TResult]],
+    ) -> TResult | None:
         temp_dir = PROJECT_ROOT / "tmp"
         temp_dir.mkdir(parents=True, exist_ok=True)
 
         local_file = None
         try:
-            # pass str(...) to satisfy type checkers that expect a string path
             local_file = await self._client.download_file(str(record), temp_dir)
-            result = await self._parse_decision_in_file(local_file)
-            return result
-
+            return await parser(local_file)
         except Exception as e:
             print(f"Не вдалося обробити файл: {e}")
+            return None
         finally:
             if local_file and local_file.exists():
-                local_file.unlink()
-            pass
+                # local_file.unlink()
+                pass
 
-        return None
+    async def process_decision(self, record: str) -> DecisionAnalysisResult | None:
+        return await self._process_file(record, self._parse_decision_in_file)
+
+    async def process_exec(self, record: str) -> ExecAnalysisResult | None:
+        return await self._process_file(record, self._parse_execution_doc_in_file)
 
 
 __all__ = ["FileProcessor", "DecisionFileProcessor"]

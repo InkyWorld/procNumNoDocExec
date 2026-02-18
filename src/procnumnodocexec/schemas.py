@@ -20,6 +20,13 @@ class DecisionAnalysisResult:
     date_of_decision: date | None = None
     execution_doc_issue_date: date | None = None
 
+@dataclass(slots=True)
+class ExecAnalysisResult:
+    date_of_issuance: date | None = None
+    main_amount: Decimal | None = None
+    court_fee: Decimal | None = None
+    legal_aid: Decimal | None = None
+
 
 class CompanyEnum(Enum):
     Ace = "Ace"
@@ -52,6 +59,7 @@ class DocumentDecisionInsertDTO:
     date_of_decision: date | None
     docType: str
     local_file_path: str
+    date_of_issuance: date | None = None
 
 
 @dataclass
