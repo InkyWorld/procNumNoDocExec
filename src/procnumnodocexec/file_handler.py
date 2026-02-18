@@ -113,8 +113,7 @@ class DecisionFileProcessor(FileProcessor):
             return None
         finally:
             if local_file and local_file.exists():
-                # local_file.unlink()
-                pass
+                local_file.unlink()
 
     async def process_decision(self, record: str) -> DecisionAnalysisResult | None:
         return await self._process_file(record, self._parse_decision_in_file)

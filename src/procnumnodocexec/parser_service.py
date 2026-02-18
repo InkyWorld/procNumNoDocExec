@@ -35,15 +35,26 @@ class ParserService:
         await self.run_decision()
 
     async def run_decision(self) -> None:
-        records = await self._view_repo.all_recent(date_range=DateRange(
-            start_year=2026, start_month=2, start_day=2, end_year=2026, end_month=2, end_day=9), ilike_filter="рішен")
+        records = await self._view_repo.all_recent(
+            date_range=DateRange(
+                start_year=2026,
+                start_month=2,
+                start_day=2,
+                end_year=2026,
+                end_month=2,
+                end_day=9,
+            ),
+            ilike_filter="рішен",
+        )
 
         semaphore = asyncio.Semaphore(10)
 
         async def process_record(record: message_document_DTO) -> None:
             async with semaphore:
                 try:
-                    result = await self._file_processor.process_decision(record.local_path)
+                    result = await self._file_processor.process_decision(
+                        record.local_path
+                    )
                     created_at = record.message_createdAt
 
                     if isinstance(result, DecisionEnum):
@@ -81,10 +92,17 @@ class ParserService:
         await tqdm.gather(*tasks, desc="Processing records")
 
     async def run_exec(self) -> None:
-        records = await self._view_repo.all_recent(date_range=DateRange(
-            start_year=2026, start_month=2, start_day=2, end_year=2026, end_month=2, end_day=9), ilike_filter=[["викон", "лист"], ["викон", "докум"]])
-        print(len(records))
-
+        records = await self._view_repo.all_recent(
+            date_range=DateRange(
+                start_year=2026,
+                start_month=2,
+                start_day=2,
+                end_year=2026,
+                end_month=2,
+                end_day=9,
+            ),
+            ilike_filter=[["викон", "лист"], ["викон", "докум"]],
+        )
         semaphore = asyncio.Semaphore(10)
 
         async def process_record(record: message_document_DTO) -> None:
@@ -119,5 +137,6 @@ class ParserService:
             tasks.append(asyncio.create_task(process_record(record)))
 
         await tqdm.gather(*tasks, desc="Processing records")
+
 
 __all__ = ["ParserService"]

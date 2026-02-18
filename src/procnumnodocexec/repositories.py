@@ -8,6 +8,7 @@ from itertools import islice
 from typing import TypeVar
 
 from sqlalchemy import MetaData, Table, and_, delete, func, insert, or_, select
+from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session
 
@@ -29,7 +30,7 @@ class ViewRepository(ABC):
     async def all_recent(
         self,
         date_range: DateRange,
-        ilike_filter: list[str] | list[list[str]] | str | None,
+        ilike_filter: list[list[str]] | str | None,
     ) -> list[message_document_DTO]:
         """Return records pending processing; limit caps the number fetched."""
 
@@ -70,7 +71,7 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
     async def all_recent(
         self,
         date_range: DateRange,
-        ilike_filter: list[str] | list[list[str]] | str | None,
+        ilike_filter: list[list[str]] | str | None,
     ) -> list[message_document_DTO]:
         async with self._session_factory() as session:
             # Викликаємо синхронну функцію рефлексії через run_sync
@@ -106,38 +107,22 @@ class AsyncViewMessageDocumentRepository(ViewRepository):
                     )
 
                 # 2️⃣ Якщо це список
-                else:
+                if isinstance(ilike_filter, list):
                     # Перевіряємо: список списків?
-                    if all(isinstance(group, list) for group in ilike_filter):
-                        # (OR ... ) AND (OR ...)
-                        stmt = stmt.where(
-                            and_(
-                                *[
-                                    or_(
-                                        *[
-                                            procDocsDecision_view.c.message_description.ilike(
-                                                f"%{word}%"
-                                            )
-                                            for word in group
-                                        ]
-                                    )
-                                    for group in ilike_filter
-                                ]
-                            )
+                    stmt = stmt.where(
+                        or_(
+                            *[
+                                and_(
+                                    *[
+                                        procDocsDecision_view.c.message_description.ilike(f"%{word}%")
+                                        for word in group
+                                    ]
+                                )
+                                for group in ilike_filter
+                                if group
+                            ]
                         )
-
-                    else:
-                        # Простий OR між словами
-                        stmt = stmt.where(
-                            or_(
-                                *[
-                                    procDocsDecision_view.c.message_description.ilike(
-                                        f"%{word}%"
-                                    )
-                                    for word in ilike_filter
-                                ]
-                            )
-                        )
+                    )
             result = await session.execute(stmt)
             rows = result.mappings().all()
         records: list[message_document_DTO] = []
