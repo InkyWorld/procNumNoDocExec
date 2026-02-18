@@ -20,7 +20,7 @@ async def _run() -> None:
     """Wire up repositories and run parser service."""
 
     Session = get_async_sessionmaker()
-    company = CompanyEnum.Unit
+    company = CompanyEnum.Ace
     view_repo = AsyncViewMessageDocumentRepository(company, Session)
     exec_repo = AsyncMessageDocumentDecisionRepository(company, Session)
     extract_chain, classify_chain = get_azure_chains()

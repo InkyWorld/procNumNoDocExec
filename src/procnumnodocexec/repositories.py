@@ -148,10 +148,18 @@ class AsyncMessageDocumentDecisionRepository(TablesRepository):
     ):
         self._session_factory = session_factory
         self.company: CompanyEnum = company
+        table_name = (
+            "docs_decision_ace" if company == CompanyEnum.Ace else "docs_decision_unit"
+        )
+        self._target_table = DocsDecisionTable.__table__.to_metadata(
+            MetaData(),
+            name=table_name,
+            schema="dbo",
+        )
 
     async def delete_all(self) -> None:
         """Видаляє всі записи з таблиці."""
-        stmt = delete(DocsDecisionTable)
+        stmt = delete(self._target_table)
 
         async with self._session_factory() as session:
             async with session.begin():
@@ -185,7 +193,7 @@ class AsyncMessageDocumentDecisionRepository(TablesRepository):
         async with self._session_factory() as session:
             async with session.begin():
                 for batch in self._chunked(values_list, 2000):
-                    await session.execute(insert(DocsDecisionTable), batch)
+                    await session.execute(insert(self._target_table), batch)
 
 
 __all__ = [
