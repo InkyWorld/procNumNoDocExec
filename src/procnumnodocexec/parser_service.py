@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import date, timedelta
 
 from tqdm.asyncio import tqdm  # type: ignore
 
@@ -31,25 +32,46 @@ class ParserService:
         self._file_processor = file_processor
         self._company = company
 
+    @staticmethod
+    def _yesterday_range() -> DateRange:
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        return DateRange(
+            start_year=yesterday.year,
+            start_month=yesterday.month,
+            start_day=yesterday.day,
+            end_year=today.year,
+            end_month=today.month,
+            end_day=today.day,
+        )
+
+    @staticmethod
+    def _format_date_range(date_range: DateRange) -> str:
+        return (
+            f"{date_range.start_year:04d}-{date_range.start_month:02d}-{date_range.start_day:02d} "
+            f"-> {date_range.end_year:04d}-{date_range.end_month:02d}-{date_range.end_day:02d}"
+        )
+
     async def run(self) -> None:
         await self.run_decision()
 
-    async def run_decision(self) -> None:
+    async def run_decision(self, date_range: DateRange | None = None) -> None:
+        target_range = date_range or self._yesterday_range()
+        print(
+            f"[{self._company.value}] decision: start, range={self._format_date_range(target_range)}"
+        )
         records = await self._view_repo.all_recent(
-            date_range=DateRange(
-                start_year=2026,
-                start_month=2,
-                start_day=2,
-                end_year=2026,
-                end_month=2,
-                end_day=9,
-            ),
+            date_range=target_range,
             ilike_filter="рішен",
         )
+        print(f"[{self._company.value}] decision: found {len(records)} records")
 
         semaphore = asyncio.Semaphore(10)
+        success_count = 0
+        error_count = 0
 
         async def process_record(record: message_document_DTO) -> None:
+            nonlocal success_count, error_count
             async with semaphore:
                 try:
                     result = await self._file_processor.process_decision(
@@ -80,8 +102,10 @@ class ParserService:
                     )
 
                     await self._exec_repo.bulk_insert([exec_record])
+                    success_count += 1
 
                 except Exception as e:
+                    error_count += 1
                     print(f"Помилка обробки запису {record.procNum}: {e}")
 
         tasks = []
@@ -90,22 +114,26 @@ class ParserService:
             tasks.append(asyncio.create_task(process_record(record)))
 
         await tqdm.gather(*tasks, desc="Processing records")
+        print(
+            f"[{self._company.value}] decision: done, success={success_count}, errors={error_count}"
+        )
 
-    async def run_exec(self) -> None:
+    async def run_exec(self, date_range: DateRange | None = None) -> None:
+        target_range = date_range or self._yesterday_range()
+        print(
+            f"[{self._company.value}] exec: start, range={self._format_date_range(target_range)}"
+        )
         records = await self._view_repo.all_recent(
-            date_range=DateRange(
-                start_year=2026,
-                start_month=2,
-                start_day=2,
-                end_year=2026,
-                end_month=2,
-                end_day=9,
-            ),
+            date_range=target_range,
             ilike_filter=[["викон", "лист"], ["викон", "докум"]],
         )
+        print(f"[{self._company.value}] exec: found {len(records)} records")
         semaphore = asyncio.Semaphore(10)
+        success_count = 0
+        error_count = 0
 
         async def process_record(record: message_document_DTO) -> None:
+            nonlocal success_count, error_count
             async with semaphore:
                 try:
                     result = await self._file_processor.process_exec(record.local_path)
@@ -127,8 +155,10 @@ class ParserService:
                     )
 
                     await self._exec_repo.bulk_insert([exec_record])
+                    success_count += 1
 
                 except Exception as e:
+                    error_count += 1
                     print(f"Помилка обробки запису {record.procNum}: {e}")
 
         tasks = []
@@ -137,6 +167,9 @@ class ParserService:
             tasks.append(asyncio.create_task(process_record(record)))
 
         await tqdm.gather(*tasks, desc="Processing records")
+        print(
+            f"[{self._company.value}] exec: done, success={success_count}, errors={error_count}"
+        )
 
 
 __all__ = ["ParserService"]

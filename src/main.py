@@ -20,9 +20,6 @@ async def _run() -> None:
     """Wire up repositories and run parser service."""
 
     Session = get_async_sessionmaker()
-    company = CompanyEnum.Ace
-    view_repo = AsyncViewMessageDocumentRepository(company, Session)
-    exec_repo = AsyncMessageDocumentDecisionRepository(company, Session)
     extract_chain, classify_chain = get_azure_chains()
     exec_extract_chain, exec_classify_chain = get_azure_execution_doc_chains()
 
@@ -33,14 +30,17 @@ async def _run() -> None:
         execution_classify_chain=exec_classify_chain,
     )
 
-    service = ParserService(
-        view_repo=view_repo,
-        exec_repo=exec_repo,
-        file_processor=file_processor,
-        company=company,
-    )
-    # await service.run()
-    await service.run_exec()
+    for company in (CompanyEnum.Ace, CompanyEnum.Unit):
+        view_repo = AsyncViewMessageDocumentRepository(company, Session)
+        exec_repo = AsyncMessageDocumentDecisionRepository(company, Session)
+        service = ParserService(
+            view_repo=view_repo,
+            exec_repo=exec_repo,
+            file_processor=file_processor,
+            company=company,
+        )
+        await service.run_decision()
+        await service.run_exec()
 
 
 def main() -> None:
