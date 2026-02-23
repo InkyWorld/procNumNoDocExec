@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    env_file:
+      - .env
+    environment:
+      TZ: Europe/Kyiv
+    command: ["uv", "run", "python", "src/main.py"]
+
+  scheduler:
+    build: .
+    env_file:
+      - .env
+    environment:
+      TZ: Europe/Kyiv
+    command: ["/usr/local/bin/supercronic", "-passthrough-logs", "/app/crontab"]
+    restart: unless-stopped
